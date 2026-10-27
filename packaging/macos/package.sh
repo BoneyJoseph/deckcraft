@@ -4,7 +4,7 @@
 #   $DIST/deckcraft-<version>-macos-<arch>.dmg          DeckCraft.app on a drag-to-Applications DMG
 #   $DIST/deckcraft-cli-<version>-macos-<arch>.zip      the headless CLI
 #
-# Usage: packaging/macos/package.sh [--arch universal|aarch64|x86_64] [--skip-build]
+# Usage: packaging/macos/package.sh [--arch universal|aarch64|x86_64] [--skip-build] [--app-only]
 #
 # Signing (env):
 #   MACOS_SIGN_IDENTITY   codesign identity (name or SHA-1). Default "-" = ad-hoc (local testing;
@@ -19,10 +19,12 @@ HERE="$ROOT/packaging/macos"
 
 ARCH=universal
 SKIP_BUILD=0
+APP_ONLY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --arch) ARCH="$2"; shift 2 ;;
     --skip-build) SKIP_BUILD=1; shift ;;
+    --app-only) APP_ONLY=1; shift ;;
     -h | --help) sed -n '2,16p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -58,12 +60,16 @@ echo "==> DeckCraft $VERSION for macOS ($ARCH), identity: $IDENTITY, notarize: $
 if [[ "$SKIP_BUILD" = 0 ]]; then
   args=()
   for t in "${TARGETS[@]}"; do args+=(--target "$t"); done
-  (cd "$ROOT" && cargo build --release --locked -p deckcraft -p deckcraft-cli "${args[@]}")
+  packages=(-p deckcraft)
+  [[ "$APP_ONLY" = 1 ]] || packages+=(-p deckcraft-cli)
+  (cd "$ROOT" && cargo build --release --locked "${packages[@]}" "${args[@]}")
 fi
 
 rm -rf "$WORK"
 mkdir -p "$WORK/bin"
-for bin in deckcraft deckcraft-cli; do
+binaries=(deckcraft)
+[[ "$APP_ONLY" = 1 ]] || binaries+=(deckcraft-cli)
+for bin in "${binaries[@]}"; do
   inputs=()
   for t in "${TARGETS[@]}"; do inputs+=("$CARGO_TARGET_DIR/$t/release/$bin"); done
   lipo -create -output "$WORK/bin/$bin" "${inputs[@]}"
@@ -102,10 +108,22 @@ echo "==> assembling $APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 # Executable and icon carry the display name (CFBundleExecutable / CFBundleIconFile).
 cp "$WORK/bin/deckcraft" "$APP/Contents/MacOS/DeckCraft"
-cp "$ROOT/assets/app-icon/deckcraft.icns" "$APP/Contents/Resources/DeckCraft.icns"
+# Matched cobalt/violet community icon with a distinct presentation pictogram.
+swift "$HERE/custom-icon.swift" "$WORK/custom-icon-1024.png"
+ICON_DIR="$WORK/custom-icon.iconset"
+mkdir -p "$ICON_DIR"
+for edge in 16 32 128 256 512; do
+  sips -s format png -z "$edge" "$edge" "$WORK/custom-icon-1024.png" --out "$ICON_DIR/icon_${edge}x${edge}.png" >/dev/null
+  double=$((edge * 2))
+  sips -s format png -z "$double" "$double" "$WORK/custom-icon-1024.png" --out "$ICON_DIR/icon_${edge}x${edge}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICON_DIR" -o "$APP/Contents/Resources/DeckCraft.icns"
 # The licences and README, as in the CLI zip, plus the licences of the embedded craft-fonts
 # fonts when built with CRAFT_FONTS_DIR. Before signing, so the seal covers them.
-copy_docs "$APP/Contents/Resources"
+for notice in LICENSE LICENSE-MIT LICENSE-APACHE COPYRIGHT NOTICE ATTRIBUTION.md; do
+  if [[ -f "$ROOT/$notice" ]]; then cp "$ROOT/$notice" "$APP/Contents/Resources/"; fi
+done
+copy_font_licences "$APP/Contents/Resources"
 sed -e "s/@VERSION@/$VERSION/g" -e "s/@SHORT_VERSION@/$SHORT_VERSION/g" \
   -e "s/@BUILD_SHA@/${DECKCRAFT_BUILD_SHA:-unknown}/g" \
   "$HERE/Info.plist.in" >"$APP/Contents/Info.plist"
@@ -150,6 +168,13 @@ if [[ "$NOTARIZE" = 1 ]]; then
   xcrun stapler staple "$DMG"
   xcrun stapler validate "$DMG"
   spctl --assess --type open --context context:primary-signature -vvv "$DMG"
+fi
+
+# The community app-only DMG omits the separate command-line utility.
+if [[ "$APP_ONLY" = 1 ]]; then
+  echo "==> lean Apple Silicon DeckCraft DMG ready"
+  ls -lh "$DMG"
+  exit 0
 fi
 
 # ---- CLI ---------------------------------------------------------------------------------------
