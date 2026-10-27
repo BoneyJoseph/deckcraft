@@ -235,7 +235,6 @@ pub(super) fn account(app: &mut SlideApp, ui: &mut Ui) {
             ) {
                 let _ = app.run("app.about", json!({}));
             }
-            ui.hyperlink_to("Join our community on Discord", deckcraft_engine::links::DISCORD);
             ui.hyperlink_to("Source on GitHub", deckcraft_engine::links::GITHUB);
         });
     });

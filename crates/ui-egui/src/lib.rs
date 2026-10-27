@@ -122,7 +122,6 @@ pub const UI_COMMANDS: &[(&str, &str, Option<&str>, &str)] = &[
         "{layout?, perPage?, slides?, includeHidden?, frame?, paper?: letter|a4|legal|a3, orientation?: portrait|landscape}",
     ),
     ("app.about", "About DeckCraft", None, "{}"),
-    ("app.checkUpdates", "Check for Updates…", None, "{}"),
     ("app.palette", "Command Palette", Some("Cmd+Shift+P"), "{}"),
     ("app.preferences", "Preferences…", Some("Cmd+,"), "{}"),
     ("app.openDialog", "Open…", None, "{purpose?}"),
@@ -141,7 +140,7 @@ pub const UI_COMMANDS: &[(&str, &str, Option<&str>, &str)] = &[
     ("app.qat", "Quick Access Toolbar", None, "{add: command id, params?, label?, icon?} | {remove: id, params?} | {reset: true} → [buttons]"),
     ("app.find", "Find…", Some("Cmd+F"), "{}"),
     ("app.replace", "Replace…", Some("Cmd+H"), "{}"),
-    ("app.links", "Community Links", None, "{}"),
+    ("app.links", "Project Links", None, "{}"),
 ];
 
 pub struct Perf {

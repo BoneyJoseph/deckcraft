@@ -209,12 +209,6 @@ impl SlideApp {
                 return Ok(json!({"printed": self.print_pdf(p.clone())}));
             }
             "app.about" => self.dialog = Some(dialogs::Dialog::new("about")),
-            "app.checkUpdates" => {
-                #[cfg(not(target_arch = "wasm32"))]
-                updates_ui::request_check(self);
-                #[cfg(target_arch = "wasm32")]
-                return Err("updates are handled by the browser: reload the page".into());
-            }
             "app.palette" => self.palette = Some((String::new(), 0)),
             "app.preferences" => self.dialog = Some(dialogs::Dialog::new("preferences")),
             "app.openDialog" => self.pick_and_open(),
@@ -267,7 +261,7 @@ impl SlideApp {
             }
             "app.links" => {
                 use deckcraft_engine::links::*;
-                return Ok(json!({"discord": DISCORD, "website": WEBSITE, "apps": APPS, "appPage": APP_PAGE, "github": GITHUB}));
+                return Ok(json!({"github": GITHUB, "issues": ISSUES}));
             }
             _ => return Err(format!("unknown UI command `{id}`")),
         }
