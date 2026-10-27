@@ -1,0 +1,77 @@
+name: Manual Lean Apple Silicon DMG
+
+# Default-branch launcher: builds the custom edition without merging it to main.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build:
+    name: Build DeckCraft ARM64 installer
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - name: Check out custom app edition
+        uses: actions/checkout@v4
+        with:
+          ref: custom/apple-silicon-community
+          persist-credentials: false
+      - name: Identify source revision
+        run: |
+          git show -s --format='%H %s'
+          test "$(git branch --show-current)" = "custom/apple-silicon-community"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: deckcraft-manual-lean-arm64
+      - name: Validate scripts and Rust GUI
+        run: |
+          bash -n packaging/macos/package.sh
+          swiftc -parse packaging/macos/custom-icon.swift
+          cargo check --locked --target aarch64-apple-darwin -p deckcraft
+      - name: Build GUI-only macOS DMG
+        env:
+          MACOS_SIGN_IDENTITY: "-"
+          CARGO_INCREMENTAL: "0"
+        run: bash packaging/macos/package.sh --arch aarch64 --app-only
+      - name: Verify installable bundle
+        run: |
+          set -euo pipefail
+          app=target/macos-package/DeckCraft.app
+          test -f "$app/Contents/MacOS/DeckCraft"
+          test -f "$app/Contents/Resources/DeckCraft.icns"
+          lipo -archs "$app/Contents/MacOS/DeckCraft" | grep -w arm64
+          test "$(plutil -extract CFBundleIdentifier raw -o - "$app/Contents/Info.plist")" = "com.boneyjoseph.deckcraft"
+          codesign --verify --strict --deep "$app"
+          ls -lh dist/release/*macos-aarch64.dmg
+      - name: Upload DeckCraft lean installer
+        id: uploaded_lean
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeckCraft-Apple-Silicon-Lean-DMG
+          path: dist/release/*macos-aarch64.dmg
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove obsolete installers after success
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          CURRENT_ARTIFACT_ID: ${{ steps.uploaded_lean.outputs.artifact-id }}
+        with:
+          script: |
+            const id = Number(process.env.CURRENT_ARTIFACT_ID);
+            if (!Number.isSafeInteger(id) || id <= 0) throw Error('Missing artifact ID');
+            const { owner, repo } = context.repo;
+            const name = 'DeckCraft-Apple-Silicon-Lean-DMG';
+            const items = await github.paginate(github.rest.actions.listArtifactsForRepo, { owner, repo, per_page: 100 });
+            const prev = items.filter(a => a.name === name && a.id !== id && !a.expired).sort((a,b) => b.id - a.id);
+            const keep = new Set([id, ...prev.slice(0, 1).map(a => a.id)]);
+            for (const a of items.filter(a => a.name === name && !a.expired && !keep.has(a.id))) {
+              await github.rest.actions.deleteArtifact({ owner, repo, artifact_id: a.id });
+              core.info(`Removed obsolete DeckCraft installer #${a.id}`);
+            }
