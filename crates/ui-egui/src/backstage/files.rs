@@ -248,7 +248,6 @@ pub(super) fn home(app: &mut SlideApp, ui: &mut Ui, bs: &mut Backstage, out: &mu
             }
         });
     }
-
 }
 
 /// New: a blank presentation, then every theme and starter template, with a search box.
