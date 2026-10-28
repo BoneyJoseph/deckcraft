@@ -25,6 +25,7 @@ pub(crate) fn enable(app: &mut SlideApp) {
 }
 
 /// Help > Check for Updates…: runs a check and reports the outcome either way.
+#[allow(dead_code)] // Kept for the community build's optional update-check UI.
 pub(crate) fn request_check(app: &mut SlideApp) {
     if !matches!(app.updates_rt.updater.status(), Status::Checking) {
         app.updates_rt.check_requested = true;
