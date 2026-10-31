@@ -152,8 +152,14 @@ ditto "$APP" "$STAGE/DeckCraft.app"
 ln -s /Applications "$STAGE/Applications"
 # Finder window layout: background, icon size and positions (packaging/macos/dmg/README.md).
 mkdir -p "$STAGE/.background"
-cp "$HERE/dmg/background.tiff" "$STAGE/.background/background.tiff"
+# Generate original soft cobalt/violet installer artwork instead of upstream branding.
+swift "$HERE/custom-dmg-background.swift" "$STAGE/.background/background.tiff"
 cp "$HERE/dmg/dmg-layout.DS_Store" "$STAGE/.DS_Store"
+# Give this installer volume the same custom icon as the application.
+cp "$APP/Contents/Resources/DeckCraft.icns" "$STAGE/.VolumeIcon.icns"
+if xcrun --find SetFile >/dev/null 2>&1; then xcrun SetFile -a C "$STAGE"; fi
+test -s "$STAGE/.VolumeIcon.icns"
+test -s "$STAGE/.background/background.tiff"
 rm -f "$DMG" "$WORK/raw.dmg"
 # makehybrid + convert builds the image without attaching a device, unlike `create -srcfolder`,
 # which is flaky on CI runners ("Resource busy") and hangs in sandboxed sessions.
