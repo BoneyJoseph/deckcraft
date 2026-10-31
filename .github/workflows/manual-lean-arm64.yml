@@ -3,6 +3,10 @@ name: Manual Lean Apple Silicon DMG
 # Default-branch launcher: builds the custom edition without merging it to main.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/manual-lean-arm64.yml
 
 permissions:
   contents: read
