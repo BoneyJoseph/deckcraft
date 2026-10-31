@@ -181,7 +181,7 @@ fn startup(mut control_port: Option<u16>, args: impl IntoIterator<Item = String>
 
 fn app_icon() -> Option<egui::IconData> {
     #[cfg(target_os = "macos")]
-    { None } // macOS uses the new DeckCraft.icns in the app bundle.
+    { Some(egui::IconData::default()) } // Explicit empty icon stops eframe replacing bundled DeckCraft.icns in the Dock.
     #[cfg(not(target_os = "macos"))]
     {
         let png: &[u8] = include_bytes!("../../../assets/app-icon/hicolor/256x256/apps/ai.storyteller.deckcraft.png");
